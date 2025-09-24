@@ -5,14 +5,14 @@ def create_superuser(apps, schema_editor):
     if not User.objects.filter(email='admin@example.com').exists():
         User.objects.create_superuser(
             full_name='Agwu Emmanuel',
-            email='emmanuelagwu@gmail.com',
+            email='emmanuelagwu89@gmail.com',
             password='eueacj12345' 
         )
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', 'PREVIOUS_MIGRATION_NAME'),
+        ('accounts', '0001_initial'),
     ]
 
     operations = [
