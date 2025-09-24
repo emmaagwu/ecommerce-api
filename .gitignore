@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# Virtual Environments
+venv/
+env/
+ENV/
+*.env
+.env.*
+.venv/
+Pipfile.lock
+poetry.lock
+
+# Django Stuff
+*.log
+*.pot
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+
+# Migrations (optional: sometimes you want them in version control)
+# Uncomment below if you prefer not to commit migrations during early dev
+# */migrations/*
+# !*/migrations/__init__.py
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Render / Deployment
+*.bak
+*.swp
+.coverage
+htmlcov/
+local_settings.py
+
+# Testing
+.pytest_cache/
+.coverage
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype
+.pytype/
+
+# Pipenv
+Pipfile.lock
+
+# Docker (if you later add Docker)
+*.pid
+*.seed
+*.pid.lock
