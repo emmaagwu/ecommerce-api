@@ -15,17 +15,17 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path, include
 from accounts.views import RegisterView
-from rest_framework import permissions
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('register/', RegisterView.as_view(), name='register'),
 
-    
+    # Catalog API endpoints
+    path('api/', include('catalog.urls')),  # <--- This line enables /api/products, etc.
+
     # OpenAPI schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     # Swagger UI

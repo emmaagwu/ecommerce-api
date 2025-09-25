@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-qyypr1--2_(%sa%vkg0f2-#*aoohe=xy^ya!btn5eo=iz==sas
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.onrender.com']
+ALLOWED_HOSTS = ['.onrender.com', 'localhost']
 
 
 # Application definition
@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'accounts',
+    'catalog',
     'drf_spectacular',
 ]
 
