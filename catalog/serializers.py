@@ -72,7 +72,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'description',
             'image',
             'images',
-            'in_stock',
+            'inStock',
             'created_at',
             'rating',
             'review_count',
