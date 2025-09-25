@@ -89,7 +89,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'tags',
             'tag_ids',
         ]
-        read_only_fields = ['id', 'created_at', 'rating', 'review_count']
+        read_only_fields = ['id', 'createdAt', 'rating', 'reviewCount']
 
     def create(self, validated_data):
         # Pop related fields
