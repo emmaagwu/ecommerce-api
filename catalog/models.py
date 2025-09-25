@@ -55,7 +55,7 @@ class Product(models.Model):
     description = models.TextField()
     image = models.URLField(blank=True, default="")
     images = models.JSONField(default=list, blank=True)
-    in_stock = models.BooleanField(default=True)
+    inStock = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     rating = models.FloatField(default=0, null=True, blank=True)
     review_count = models.IntegerField(default=0, null=True, blank=True)
