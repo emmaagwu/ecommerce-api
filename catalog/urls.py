@@ -1,3 +1,4 @@
+# urls.py (in your app)
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
@@ -12,14 +13,14 @@ router.register(r'colors', views.ColorViewSet)
 router.register(r'tags', views.TagViewSet)
 
 urlpatterns = [
-    # Include ViewSet routes
-    path('api/', include(router.urls)),
+    # Include ViewSet routes (no 'api/' prefix since it's already in main urls.py)
+    path('', include(router.urls)),
 
     # Custom endpoints
-    path('api/filters/', views.filters_view, name='filters'),
-    path('api/categories/all/', views.categories_view, name='categories-all'),
-    path('api/brands/all/', views.brands_view, name='brands-all'),
-    path('api/sizes/all/', views.sizes_view, name='sizes-all'),
-    path('api/colors/all/', views.colors_view, name='colors-all'),
-    path('api/tags/all/', views.tags_view, name='tags-all'),
+    path('filters/', views.filters_view, name='filters'),
+    path('categories/all/', views.categories_view, name='categories-all'),
+    path('brands/all/', views.brands_view, name='brands-all'),
+    path('sizes/all/', views.sizes_view, name='sizes-all'),
+    path('colors/all/', views.colors_view, name='colors-all'),
+    path('tags/all/', views.tags_view, name='tags-all'),
 ]
