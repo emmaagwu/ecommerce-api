@@ -1,165 +1,204 @@
-from rest_framework import viewsets, filters, status
+# views.py
+from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend, FilterSet, CharFilter, NumberFilter, BooleanFilter
-from .models import Product, Category, Subcategory, Brand, Size, Color, Tag
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q, Min, Max
+
+from .models import Product, Category, Brand, Size, Color, Tag
 from .serializers import (
     ProductSerializer,
     CategorySerializer,
-    SubcategorySerializer,
     BrandSerializer,
     SizeSerializer,
     ColorSerializer,
-    TagSerializer,
+    TagSerializer
 )
 
-# ----------- Filters for Product -----------
-class ProductFilter(FilterSet):
-    category = CharFilter(field_name="category__name", lookup_expr="iexact")
-    subcategory = CharFilter(field_name="subcategory__name", lookup_expr="iexact")
-    brands = CharFilter(method="filter_brands")
-    sizes = CharFilter(method="filter_sizes")
-    colors = CharFilter(method="filter_colors")
-    minPrice = NumberFilter(field_name="price", lookup_expr="gte")
-    maxPrice = NumberFilter(field_name="price", lookup_expr="lte")
-    inStock = BooleanFilter(field_name="in_stock")
+class ProductPagination(PageNumberPagination):
+    page_size = 12
+    page_size_query_param = 'limit'
+    max_page_size = 100
 
-    def filter_brands(self, queryset, name, value):
-        brands = [v.strip() for v in value.split(",") if v.strip()]
-        if brands:
-            return queryset.filter(brand__name__in=brands)
-        return queryset
-
-    def filter_sizes(self, queryset, name, value):
-        sizes = [v.strip() for v in value.split(",") if v.strip()]
-        if sizes:
-            return queryset.filter(sizes__name__in=sizes).distinct()
-        return queryset
-
-    def filter_colors(self, queryset, name, value):
-        colors = [v.strip() for v in value.split(",") if v.strip()]
-        if colors:
-            return queryset.filter(colors__name__in=colors).distinct()
-        return queryset
-
-    class Meta:
-        model = Product
-        fields = []
-
-# ----------- Product ViewSet -----------
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.prefetch_related(
-        "sizes", "colors", "tags"
-    ).select_related(
-        "category", "subcategory", "brand"
-    ).all()
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
-    filterset_class = ProductFilter
-    ordering_fields = [
-        "createdAt", "price", "rating", "review_count", "name"
-    ]
-    ordering = ["-createdAt"]
-    search_fields = [
-        "name", "description", "brand__name", "tags__name"
-    ]
+    pagination_class = ProductPagination
 
-    def list(self, request, *args, **kwargs):
+    def get_queryset(self):
         """
-        Overridden to provide the filter metadata, price range, and total count
-        in the response, similar to your Next.js API.
+        Filter products based on query parameters
         """
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        serializer = self.get_serializer(page, many=True) if page is not None else self.get_serializer(queryset, many=True)
+        queryset = Product.objects.select_related(
+            'category', 'subcategory', 'brand'
+        ).prefetch_related('sizes', 'colors', 'tags')
 
-        # Filter metadata
-        categories = Category.objects.values_list("name", flat=True)
-        subcategories = Subcategory.objects.values_list("name", flat=True)
-        brands = Brand.objects.values_list("name", flat=True)
-        colors = Color.objects.values_list("name", flat=True)
-        sizes = Size.objects.values_list("name", flat=True)
-        prices = Product.objects.values_list("price", flat=True)
-        price_list = list(prices)
-        price_range = {
-            "min": min(price_list) if price_list else 0,
-            "max": max(price_list) if price_list else 0,
+        # Search functionality
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search) |
+                Q(brand__name__icontains=search) |
+                Q(tags__name__icontains=search)
+            ).distinct()
+
+        # Filter by category
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category__name__iexact=category)
+
+        # Filter by subcategory
+        subcategory = self.request.query_params.get('subcategory')
+        if subcategory:
+            queryset = queryset.filter(subcategory__name__iexact=subcategory)
+
+        # Filter by brands (comma-separated)
+        brands = self.request.query_params.get('brands')
+        if brands:
+            brand_list = [b.strip() for b in brands.split(',')]
+            queryset = queryset.filter(brand__name__in=brand_list)
+
+        # Filter by sizes (comma-separated)
+        sizes = self.request.query_params.get('sizes')
+        if sizes:
+            size_list = [s.strip() for s in sizes.split(',')]
+            queryset = queryset.filter(sizes__name__in=size_list).distinct()
+
+        # Filter by colors (comma-separated)
+        colors = self.request.query_params.get('colors')
+        if colors:
+            color_list = [c.strip() for c in colors.split(',')]
+            queryset = queryset.filter(colors__name__in=color_list).distinct()
+
+        # Filter by price range
+        min_price = self.request.query_params.get('minPrice')
+        max_price = self.request.query_params.get('maxPrice')
+        if min_price:
+            queryset = queryset.filter(price__gte=float(min_price))
+        if max_price:
+            queryset = queryset.filter(price__lte=float(max_price))
+
+        # Filter by stock status
+        in_stock = self.request.query_params.get('inStock')
+        if in_stock is not None:
+            queryset = queryset.filter(inStock=in_stock.lower() == 'true')
+
+        # Sorting
+        sort_field = self.request.query_params.get('sortField', 'createdAt')
+        sort_direction = self.request.query_params.get('sortDirection', 'desc')
+
+        # Map frontend field names to model field names
+        sort_mapping = {
+            'createdAt': 'createdAt',
+            'name': 'name',
+            'price': 'price',
+            'rating': 'rating',
+            'brand': 'brand__name'
         }
 
-        # Handle limit safely
-        limit = request.query_params.get("limit")
-        if limit is not None:
-            limit = int(limit)
-        elif getattr(self, "paginator", None) and getattr(self.paginator, "page_size", None):
-            limit = self.paginator.page_size
-        else:
-            limit = 12
+        model_sort_field = sort_mapping.get(sort_field, 'createdAt')
+        if sort_direction == 'desc':
+            model_sort_field = f'-{model_sort_field}'
+
+        queryset = queryset.order_by(model_sort_field)
+
+        return queryset
+
+@api_view(['GET'])
+def filters_view(request):
+    """
+    Return all active filters for frontend dropdowns/checkboxes.
+    Only returns filters that are linked to at least one product.
+    """
+    try:
+        # Use the manager method we created
+        filters = Product.objects.get_active_filters()
+
+        # Get price range
+        price_range = Product.objects.aggregate(
+            min=Min('price'),
+            max=Max('price')
+        )
 
         response_data = {
-            "products": serializer.data,
-            "total": queryset.count(),
-            "page": int(request.query_params.get("page", 1)),
-            "limit": limit,
-            "totalPages": self.paginator.page.paginator.num_pages if page is not None and hasattr(self, "paginator") else 1,
-            "filters": {
-                "categories": list(categories),
-                "subcategories": list(subcategories),
-                "brands": list(brands),
-                "colors": list(colors),
-                "sizes": list(sizes),
-                "priceRange": price_range,
-            },
+            'categories': filters['categories'],
+            'subcategories': [
+                {
+                    'id': sc['id'],
+                    'name': sc['name'],
+                    'category': sc['category__name']
+                } for sc in filters['subcategories']
+            ],
+            'brands': filters['brands'],
+            'sizes': filters['sizes'],
+            'colors': filters['colors'],
+            'tags': filters['tags'],
+            'priceRange': {
+                'min': price_range['min'] or 0,
+                'max': price_range['max'] or 0
+            }
         }
-        if page is not None:
-            return self.get_paginated_response(response_data)
-        return Response(response_data)
 
-# ----------- Category ViewSet -----------
+        return Response(response_data)
+    except Exception:
+        return Response(
+            {'error': 'Failed to fetch filters'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+def categories_view(request):
+    """Get all categories with their subcategories"""
+    categories = Category.objects.prefetch_related('subcategories').all()
+    serializer = CategorySerializer(categories, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def brands_view(request):
+    """Get all brands"""
+    brands = Brand.objects.all()
+    serializer = BrandSerializer(brands, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def sizes_view(request):
+    """Get all sizes"""
+    sizes = Size.objects.all()
+    serializer = SizeSerializer(sizes, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def colors_view(request):
+    """Get all colors"""
+    colors = Color.objects.all()
+    serializer = ColorSerializer(colors, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def tags_view(request):
+    """Get all tags"""
+    tags = Tag.objects.all()
+    serializer = TagSerializer(tags, many=True)
+    return Response(serializer.data)
+
+# Optional: If you need individual filter management endpoints
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-# ----------- Subcategory ViewSet -----------
-class SubcategoryViewSet(viewsets.ModelViewSet):
-    queryset = Subcategory.objects.all()
-    serializer_class = SubcategorySerializer
-
-# ----------- Brand ViewSet -----------
 class BrandViewSet(viewsets.ModelViewSet):
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
 
-# ----------- Size ViewSet -----------
 class SizeViewSet(viewsets.ModelViewSet):
     queryset = Size.objects.all()
     serializer_class = SizeSerializer
 
-# ----------- Color ViewSet -----------
 class ColorViewSet(viewsets.ModelViewSet):
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
 
-# ----------- Tag ViewSet -----------
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-
-
-# ----------- Filters View-----------
-
-@api_view(['GET'])
-def filters_view(request):
-    categories = list(Category.objects.values_list("name", flat=True))
-    subcategories = list(Subcategory.objects.values_list("name", flat=True))
-    brands = list(Brand.objects.values_list("name", flat=True))
-    colors = list(Color.objects.values_list("name", flat=True))
-    sizes = list(Size.objects.values_list("name", flat=True))
-    tags = list(Tag.objects.values_list("name", flat=True))
-    return Response({
-        "categories": categories,
-        "subcategories": subcategories,
-        "brands": brands,
-        "colors": colors,
-        "sizes": sizes,
-        "tags": tags,
-    })
