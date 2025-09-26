@@ -1,4 +1,5 @@
 from rest_framework import viewsets, filters, status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet, CharFilter, NumberFilter, BooleanFilter
 from .models import Product, Category, Subcategory, Brand, Size, Color, Tag
@@ -142,3 +143,23 @@ class ColorViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
+
+
+# ----------- Filters View-----------
+
+@api_view(['GET'])
+def filters_view(request):
+    categories = list(Category.objects.values_list("name", flat=True))
+    subcategories = list(Subcategory.objects.values_list("name", flat=True))
+    brands = list(Brand.objects.values_list("name", flat=True))
+    colors = list(Color.objects.values_list("name", flat=True))
+    sizes = list(Size.objects.values_list("name", flat=True))
+    tags = list(Tag.objects.values_list("name", flat=True))
+    return Response({
+        "categories": categories,
+        "subcategories": subcategories,
+        "brands": brands,
+        "colors": colors,
+        "sizes": sizes,
+        "tags": tags,
+    })

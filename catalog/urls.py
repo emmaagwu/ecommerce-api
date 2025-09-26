@@ -1,3 +1,4 @@
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     ProductViewSet,
@@ -7,6 +8,7 @@ from .views import (
     SizeViewSet,
     ColorViewSet,
     TagViewSet,
+    filters_view,
 )
 
 router = DefaultRouter()
@@ -18,4 +20,7 @@ router.register(r'sizes', SizeViewSet, basename='size')
 router.register(r'colors', ColorViewSet, basename='color')
 router.register(r'tags', TagViewSet, basename='tag')
 
-urlpatterns = router.urls
+urlpatterns = [
+  path('filters/', filters_view, name='filters'),
+  path('', include(router.urls)),
+]
