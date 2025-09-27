@@ -30,9 +30,9 @@ class FilterManager(models.Manager):
         """
         Return only filters that are linked to at least one product.
         """
-        return self.annotate(
-            product_count=models.Count('products')
-        ).filter(product_count__gt=0)
+        return self.filter(
+            products__isnull=False
+        ).distinct()
 
 class ProductManager(models.Manager):
     def create_with_filters(self, **validated_data):
@@ -44,7 +44,7 @@ class ProductManager(models.Manager):
             # Import here to avoid circular imports
             from .models import Category, Subcategory, Brand, Size, Color, Tag
             
-            # Pop relational fields out of validated_data
+            # Pop relational fields out of validated_data BEFORE creating product
             category_name = validated_data.pop('category_name', None)
             subcategory_name = validated_data.pop('subcategory_name', None)
             brand_name = validated_data.pop('brand_name', None)
@@ -52,11 +52,12 @@ class ProductManager(models.Manager):
             color_names = validated_data.pop('color_names', [])
             tag_names = validated_data.pop('tag_names', [])
             
-            # Handle foreign key relations first
-            category = None
-            subcategory = None
-            brand = None
+            # Also remove any ID fields that might have been passed
+            size_ids = validated_data.pop('size_ids', [])
+            color_ids = validated_data.pop('color_ids', [])
+            tag_ids = validated_data.pop('tag_ids', [])
             
+            # Handle foreign key relations first
             if category_name:
                 category, _ = Category.objects.get_or_create_normalized(
                     category_name, 'title'
@@ -80,33 +81,48 @@ class ProductManager(models.Manager):
             # Create product with all foreign keys in one save()
             product = self.create(**validated_data)
             
-            # Handle many-to-many relationships
-            if size_names:
+            # Handle many-to-many relationships after product creation
+            if size_names or size_ids:
                 sizes = []
+                # Handle size names
                 for size_name in size_names:
                     size, _ = Size.objects.get_or_create_normalized(
                         size_name, 'upper'
                     )
                     sizes.append(size)
-                product.sizes.set(sizes)
+                # Handle size IDs
+                if size_ids:
+                    sizes.extend(Size.objects.filter(id__in=size_ids))
+                if sizes:
+                    product.sizes.set(sizes)
             
-            if color_names:
+            if color_names or color_ids:
                 colors = []
+                # Handle color names
                 for color_name in color_names:
                     color, _ = Color.objects.get_or_create_normalized(
                         color_name, 'title'
                     )
                     colors.append(color)
-                product.colors.set(colors)
+                # Handle color IDs
+                if color_ids:
+                    colors.extend(Color.objects.filter(id__in=color_ids))
+                if colors:
+                    product.colors.set(colors)
             
-            if tag_names:
+            if tag_names or tag_ids:
                 tags = []
+                # Handle tag names
                 for tag_name in tag_names:
                     tag, _ = Tag.objects.get_or_create_normalized(
                         tag_name, 'lower'
                     )
                     tags.append(tag)
-                product.tags.set(tags)
+                # Handle tag IDs
+                if tag_ids:
+                    tags.extend(Tag.objects.filter(id__in=tag_ids))
+                if tags:
+                    product.tags.set(tags)
             
             return product
     
@@ -121,10 +137,10 @@ class ProductManager(models.Manager):
             'categories': list(Category.objects.with_products().values('id', 'name')),
             'subcategories': list(
                 Subcategory.objects
-                .annotate(product_count=models.Count('products'))
-                .filter(product_count__gt=0)
+                .filter(products__isnull=False)  # More explicit filter
                 .select_related('category')
                 .values('id', 'name', 'category__name')
+                .distinct()
             ),
             'brands': list(Brand.objects.with_products().values('id', 'name')),
             'sizes': list(Size.objects.with_products().values('id', 'name')),
